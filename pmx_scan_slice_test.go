@@ -16,7 +16,7 @@ type ScanSliceSuite struct {
 }
 
 func (s *ScanSliceSuite) SetupTest() {
-	conn, err := pgx.Connect(context.Background(), "postgresql://postgres:postgres@localhost/pmx_test")
+	conn, err := pgx.Connect(context.Background(), "postgresql://postgres:postgres@localhost/pmx")
 	if err != nil {
 		panic(err)
 	}

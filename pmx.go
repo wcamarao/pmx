@@ -53,7 +53,7 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 
 	for i := 0; i < t.NumField(); i++ {
 		column := t.Field(i).Tag.Get("db")
-		if t.Field(i).Tag.Get("type") == "serial" {
+		if t.Field(i).Tag.Get("generated") == "always" {
 			continue
 		}
 		if !v.Field(i).CanInterface() {
@@ -120,10 +120,7 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 
 	for i := 0; i < t.NumField(); i++ {
 		column := t.Field(i).Tag.Get("db")
-		if !allowed[t.Field(i).Name] {
-			continue
-		}
-		if t.Field(i).Tag.Get("type") == "serial" {
+		if t.Field(i).Tag.Get("generated") == "always" {
 			continue
 		}
 		if !v.Field(i).CanInterface() {
@@ -133,6 +130,9 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 			continue
 		}
 		if i == 0 {
+			continue
+		}
+		if !allowed[t.Field(i).Name] {
 			continue
 		}
 		columns = append(columns, column)
