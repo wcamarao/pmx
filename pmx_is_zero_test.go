@@ -25,3 +25,7 @@ func (s *IsZeroSuite) TestValues() {
 	s.True(pmx.IsZero(fxt.Sample{}))
 	s.False(pmx.IsZero(fxt.Sample{ID: "a"}))
 }
+
+func (s *IsZeroSuite) TestNil() {
+	s.True(pmx.IsZero(nil))
+}

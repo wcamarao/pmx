@@ -124,9 +124,9 @@ func main() {
 
 ## Slice Scanning
 
-When scanning rows into a slice, you must provide a pointer. The underlying slice type must be a struct pointer.
+When scanning rows into a slice, you must provide a pointer.
 
-You can handle "No events found" with `len(events) == 0`.
+The underlying slice type must be a struct pointer.
 
 ```go
 type Event struct {
@@ -237,7 +237,7 @@ The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid poin
 Valid options are:
 
 - When calling `pmx.Insert()` and `pmx.Update()`, you must always provide a struct pointer.
-- When calling `pmx.Scan()`, you must either provide a struct pointer or slice pointer.
+- When calling `pmx.Scan()`, you must provide either a struct pointer or slice pointer.
 - When calling `pmx.Scan()` with a slice pointer, the underlying slice type must be a struct pointer.
 
 ## Roadmap

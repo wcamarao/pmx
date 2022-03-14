@@ -18,6 +18,9 @@ type Executor interface {
 }
 
 func IsZero(entity interface{}) bool {
+	if entity == nil {
+		return true
+	}
 	v := reflect.ValueOf(entity)
 	if reflect.TypeOf(entity).Kind() == reflect.Ptr {
 		v = v.Elem()
