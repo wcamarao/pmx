@@ -1,6 +1,6 @@
 # pmx
 
-Minimalist go library for postgres and pgx.
+Minimalist golang data mapping library for postgres and pgx.
 
 ## Install
 
@@ -11,15 +11,15 @@ go get -u github.com/wcamarao/pmx
 ## Features
 
 - Simple data mapping with struct tags
-- Scan `pgx.Rows` into an annotated struct or slice
-- Insert annotated struct with `pgxpool.Pool`, `pgx.Conn` or `pgx.Tx`
-- Update annotated struct with `pgxpool.Pool`, `pgx.Conn` or `pgx.Tx`
+- Select database records into an annotated struct or slice
+- Insert and update database records from an annotated struct
+- Compatible with pgx Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
 - Update explicit struct fields only
 - Allow auto generated values
 
 ## Data Mapping
 
-Given the following postgres table:
+Given the following table:
 
 ```sql
 create table events (
@@ -34,8 +34,8 @@ Annotate a data model with struct tags:
 type Event struct {
     ID         string    `db:"id" table:"events"`
     RecordedAt time.Time `db:"recorded_at"`
-    Transient  string // ignored by pmx
-    transient  string // ignored by pmx
+    Transient  string    // ignored by pmx
+    transient  string    // ignored by pmx
 }
 ```
 
@@ -46,8 +46,6 @@ type Event struct {
 ## Inserting
 
 You must always provide a struct pointer.
-
-All struct fields annotated with `db` are inserted by default.
 
 Auto generated values are populated back into the struct pointer.
 
@@ -81,9 +79,9 @@ func main() {
 }
 ```
 
-## Struct Scanning
+## Selecting into a Struct
 
-When scanning rows into a struct, you must provide a pointer.
+When selecting records into a struct, you must provide a pointer.
 
 You can handle "Event not found" with `pmx.IsZero()`.
 
@@ -102,14 +100,8 @@ func main() {
     }
     defer conn.Close(ctx)
 
-    rows, err := conn.Query(ctx, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
-    if err != nil {
-        panic(err)
-    }
-    defer rows.Close()
-
     var event Event
-    err = pmx.Scan(rows, &event)
+    err = pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
     if err != nil {
         panic(err)
     }
@@ -122,9 +114,9 @@ func main() {
 }
 ```
 
-## Slice Scanning
+## Selecting into a Slice
 
-When scanning rows into a slice, you must provide a pointer.
+When selecting records into a slice, you must provide a pointer.
 
 The underlying slice type must be a struct pointer.
 
@@ -143,14 +135,8 @@ func main() {
     }
     defer conn.Close(ctx)
 
-    rows, err := conn.Query(ctx, "select * from events limit 3")
-    if err != nil {
-        panic(err)
-    }
-    defer rows.Close()
-
     var events []*Event
-    err = pmx.Scan(rows, &events)
+    err = pmx.Select(ctx, conn, &events, "select * from events limit 3")
     if err != nil {
         panic(err)
     }
@@ -205,7 +191,7 @@ func main() {
 
 ## Auto Generated Values
 
-Given a table with an auto generated id:
+Given the following table with an auto generated id:
 
 ```sql
 create table events (
@@ -237,8 +223,8 @@ The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid poin
 Valid options are:
 
 - When calling `pmx.Insert()` and `pmx.Update()`, you must always provide a struct pointer.
-- When calling `pmx.Scan()`, you must provide either a struct pointer or slice pointer.
-- When calling `pmx.Scan()` with a slice pointer, the underlying slice type must be a struct pointer.
+- When calling `pmx.Select()`, you must provide either a struct pointer or slice pointer.
+- When calling `pmx.Select()` with a slice pointer, the underlying slice type must be a struct pointer.
 
 ## Roadmap
 

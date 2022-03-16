@@ -87,7 +87,7 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 	}
 	defer rows.Close()
 
-	return Scan(rows, entity)
+	return scan(rows, entity)
 }
 
 func Update(ctx context.Context, e Executor, entity interface{}, fields []string) error {
@@ -168,10 +168,20 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 	}
 	defer rows.Close()
 
-	return Scan(rows, entity)
+	return scan(rows, entity)
 }
 
-func Scan(rows pgx.Rows, dest interface{}) error {
+func Select(ctx context.Context, e Executor, dest interface{}, sql string, args ...interface{}) error {
+	rows, err := e.Query(ctx, sql, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	return scan(rows, dest)
+}
+
+func scan(rows pgx.Rows, dest interface{}) error {
 	t := reflect.TypeOf(dest)
 	if t.Kind() != reflect.Ptr {
 		return ErrInvalidRef
