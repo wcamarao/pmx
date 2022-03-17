@@ -11,11 +11,11 @@ go get -u github.com/wcamarao/pmx
 ## Features
 
 - Simple data mapping with struct tags
+- Explicit by design, no magic or conventions
 - Select database records into an annotated struct or slice
 - Insert and update database records from an annotated struct
 - Compatible with pgx Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
-- Explicit by design, no magic or conventions
-- Allow auto generated values
+- Support transient fields, nil pointers and auto generated values
 
 ## Data Mapping
 
@@ -46,8 +46,6 @@ type Event struct {
 ## Inserting
 
 You must always provide a struct pointer.
-
-Auto generated values are populated back into the struct pointer.
 
 ```go
 type Event struct {
@@ -153,12 +151,10 @@ func main() {
 
 You must always provide a struct pointer.
 
-The last argument explicitly specifies:
+The last argument (`UpdateOptions`) specifies:
 
-- Which struct fields are allowed to be updated
-- Which struct fields are matched in the `where` clause
-
-Auto generated values are populated back into the struct pointer.
+- `Allow`: which struct fields will be updated
+- `Match`: which struct fields will be matched in the `where` clause
 
 ```go
 type Event struct {
@@ -204,7 +200,7 @@ create table events (
 );
 ```
 
-Annotate the `ID` field with a `generated:"always"` struct tag:
+Annotate the `ID` field with the `generated:"always"` struct tag:
 
 ```go
 type Event struct {
@@ -229,7 +225,7 @@ Valid options are:
 
 ## Roadmap
 
-Potential improvements:
+Potential features:
 
 - Multirow insert
 - On conflict
