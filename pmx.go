@@ -17,6 +17,11 @@ type Executor interface {
 	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
 }
 
+type UpdateOptions struct {
+	Allow []string
+	Match []string
+}
+
 func IsZero(entity interface{}) bool {
 	if entity == nil {
 		return true
@@ -90,7 +95,7 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 	return scan(rows, entity)
 }
 
-func Update(ctx context.Context, e Executor, entity interface{}, fields []string) error {
+func Update(ctx context.Context, e Executor, entity interface{}, options *UpdateOptions) error {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
@@ -116,9 +121,14 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 	statements := []string{}
 	args := []interface{}{}
 	allowed := map[string]bool{}
+	denied := map[string]bool{}
 
-	for _, field := range fields {
+	for _, field := range options.Allow {
 		allowed[field] = true
+	}
+
+	for _, field := range options.Match {
+		denied[field] = true
 	}
 
 	for i := 0; i < t.NumField(); i++ {
@@ -132,10 +142,10 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 		if len(column) == 0 {
 			continue
 		}
-		if i == 0 {
+		if !allowed[t.Field(i).Name] {
 			continue
 		}
-		if !allowed[t.Field(i).Name] {
+		if denied[t.Field(i).Name] {
 			continue
 		}
 		columns = append(columns, column)
@@ -152,13 +162,24 @@ func Update(ctx context.Context, e Executor, entity interface{}, fields []string
 	}
 
 	buf.WriteString(strings.Join(statements, ", "))
-	args = append(args, v.Field(0).Interface())
+
+	conditions := []string{}
+	for _, field := range options.Match {
+		sf, ok := t.FieldByName(field)
+		column := sf.Tag.Get("db")
+
+		if !ok || len(column) == 0 || !v.FieldByName(field).CanInterface() {
+			return fmt.Errorf("invalid UpdateInput.Match field: %s", field)
+		}
+
+		args = append(args, v.FieldByName(field).Interface())
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", column, len(args)))
+	}
 
 	buf.WriteString(
 		fmt.Sprintf(
-			" where %s = $%d returning *",
-			t.Field(0).Tag.Get("db"),
-			len(args),
+			" where %s returning *",
+			strings.Join(conditions, " and "),
 		),
 	)
 

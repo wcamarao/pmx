@@ -14,7 +14,7 @@ go get -u github.com/wcamarao/pmx
 - Select database records into an annotated struct or slice
 - Insert and update database records from an annotated struct
 - Compatible with pgx Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
-- Update explicit struct fields only
+- Explicit by design, no magic or conventions
 - Allow auto generated values
 
 ## Data Mapping
@@ -81,7 +81,7 @@ func main() {
 
 ## Selecting into a Struct
 
-When selecting records into a struct, you must provide a pointer.
+When selecting records into a struct, you must provide a struct pointer.
 
 You can handle "Event not found" with `pmx.IsZero()`.
 
@@ -116,7 +116,7 @@ func main() {
 
 ## Selecting into a Slice
 
-When selecting records into a slice, you must provide a pointer.
+When selecting records into a slice, you must provide a slice pointer.
 
 The underlying slice type must be a struct pointer.
 
@@ -153,9 +153,10 @@ func main() {
 
 You must always provide a struct pointer.
 
-The *first* struct field won't be updated, and it will be used in the `update where` clause.
+The last argument explicitly specifies:
 
-The last argument explicitly specifies which struct fields will be updated.
+- Which struct fields are allowed to be updated
+- Which struct fields are matched in the `where` clause
 
 Auto generated values are populated back into the struct pointer.
 
@@ -180,7 +181,10 @@ func main() {
     }
 
     // Generated query: update events set recorded_at = $1 where id = $2 returning *
-    err = pmx.Update(ctx, conn, &event, []string{"RecordedAt"})
+    err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
+        Allow: []string{"RecordedAt"},
+        Match: []string{"ID"},
+    })
     if err != nil {
         panic(err)
     }
@@ -211,10 +215,7 @@ type Event struct {
 
 So, the `ID` will be excluded from `insert` and `update` statements.
 
-As previously noted:
-
-- In this case, the `ID` would still be used in the `update where` clause.
-- Auto generated values are populated back into the struct pointer after `insert` and `update`.
+Auto generated values are populated back into the struct pointer after `insert` and `update`.
 
 ## ErrInvalidRef
 
@@ -230,7 +231,6 @@ Valid options are:
 
 Potential improvements:
 
-- Allow specifying a `where` clause in `pmx.Update()`
 - Multirow insert
 - On conflict
 - Delete
