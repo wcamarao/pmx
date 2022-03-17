@@ -1,10 +1,14 @@
 package fxt
 
+import (
+	"time"
+)
+
 var sample = Sample{private: "used"}
 
 type Event struct {
-	Position int64  `db:"position" generated:"always" table:"events"`
-	Label    string `db:"label"`
+	Position   int64     `db:"position" generated:"always" table:"events"`
+	RecordedAt time.Time `db:"recorded_at"`
 }
 
 type Sample struct {

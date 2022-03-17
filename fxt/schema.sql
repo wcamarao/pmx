@@ -1,6 +1,6 @@
 create table events (
   position bigserial,
-  label text
+  recorded_at timestamptz
 );
 
 create table samples (
