@@ -101,10 +101,12 @@ func (s *UpdateSuite) TestReturning() {
 	s.Equal(int64(1), tag.RowsAffected())
 	s.Nil(err)
 
+	t := "update-returning-new-token"
+
 	user := fxt.User{
 		ID:    "update-returning-id",
 		Email: "update-returning-new-email",
-		Token: "update-returning-new-token",
+		Token: &t,
 	}
 
 	err = pmx.Update(context.Background(), s.conn, &user, &pmx.UpdateOptions{
@@ -113,7 +115,7 @@ func (s *UpdateSuite) TestReturning() {
 	})
 	s.Equal("update-returning-id", user.ID)
 	s.Equal("update-returning-new-email", user.Email)
-	s.Equal("update-returning-new-token", user.Token)
+	s.Equal("update-returning-new-token", *user.Token)
 	s.Nil(err)
 }
 
@@ -128,10 +130,12 @@ func (s *UpdateSuite) TestAllowedFields() {
 	s.Equal(int64(1), tag.RowsAffected())
 	s.Nil(err)
 
+	t := "update-allowed-new-token"
+
 	user := fxt.User{
 		ID:    "update-allowed-id",
 		Email: "update-allowed-new-email",
-		Token: "update-allowed-new-token",
+		Token: &t,
 	}
 
 	err = pmx.Update(context.Background(), s.conn, &user, &pmx.UpdateOptions{
@@ -160,10 +164,12 @@ func (s *UpdateSuite) TestUnallowedFields() {
 	s.Equal(int64(1), tag.RowsAffected())
 	s.Nil(err)
 
+	t := "update-unallowed-new-token"
+
 	user := fxt.User{
 		ID:    "update-unallowed-id",
 		Email: "update-unallowed-new-email",
-		Token: "update-unallowed-new-token",
+		Token: &t,
 	}
 
 	err = pmx.Update(context.Background(), s.conn, &user, &pmx.UpdateOptions{

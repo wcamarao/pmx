@@ -19,7 +19,7 @@ type Sample struct {
 }
 
 type User struct {
-	ID    string `db:"id" table:"users"`
-	Email string `db:"email"`
-	Token string `db:"token"`
+	ID    string  `db:"id" table:"users"`
+	Email string  `db:"email"`
+	Token *string `db:"token"`
 }
