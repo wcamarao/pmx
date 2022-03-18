@@ -168,8 +168,14 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 		sf, ok := t.FieldByName(field)
 		column := sf.Tag.Get("db")
 
-		if !ok || len(column) == 0 || !v.FieldByName(field).CanInterface() {
-			return fmt.Errorf("invalid UpdateInput.Match field: %s", field)
+		if !ok {
+			return fmt.Errorf("struct field not found: %s", field)
+		}
+		if len(column) == 0 {
+			return fmt.Errorf("struct field must be annotated: %s", field)
+		}
+		if !v.FieldByName(field).CanInterface() {
+			return fmt.Errorf("sturct field must be exported: %s", field)
 		}
 
 		args = append(args, v.FieldByName(field).Interface())
