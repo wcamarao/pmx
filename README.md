@@ -1,6 +1,6 @@
 # pmx
 
-Minimalist golang data mapping library for postgres and pgx.
+Golang data mapping library for postgres and pgx.
 
 ## Install
 
@@ -45,7 +45,7 @@ type Event struct {
 
 ## Inserting
 
-You must always provide a struct pointer.
+Always provide a struct pointer.
 
 ```go
 type Event struct {
@@ -79,9 +79,9 @@ func main() {
 
 ## Selecting into a Struct
 
-When selecting records into a struct, you must provide a struct pointer.
+Always provide a struct pointer.
 
-You can handle "Event not found" with `pmx.IsZero()`.
+You can handle "not found" with `pmx.IsZero()`.
 
 ```go
 type Event struct {
@@ -105,7 +105,7 @@ func main() {
     }
 
     if pmx.IsZero(event) {
-        panic("Event not found")
+        panic("not found")
     }
 
     fmt.Printf("%+v\n", event)
@@ -114,9 +114,9 @@ func main() {
 
 ## Selecting into a Slice
 
-When selecting records into a slice, you must provide a slice pointer.
+Always provide a *slice* pointer.
 
-The underlying slice type must be a struct pointer.
+The underlying slice type must be a *struct* pointer.
 
 ```go
 type Event struct {
@@ -149,7 +149,7 @@ func main() {
 
 ## Updating
 
-You must always provide a struct pointer.
+Always provide a struct pointer.
 
 The last argument (`UpdateOptions`) specifies:
 
@@ -209,7 +209,7 @@ type Event struct {
 }
 ```
 
-So, the `ID` will be excluded from `insert` and `update` statements.
+The `ID` will be excluded from `insert` and `update` statements.
 
 Auto generated values are populated back into the struct pointer after `insert` and `update`.
 
@@ -217,16 +217,8 @@ Auto generated values are populated back into the struct pointer after `insert` 
 
 The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid pointer or value.
 
-Valid options are:
-
-- When calling `pmx.Insert()` and `pmx.Update()`, you must always provide a struct pointer.
-- When calling `pmx.Select()`, you must provide either a struct pointer or slice pointer.
-- When calling `pmx.Select()` with a slice pointer, the underlying slice type must be a struct pointer.
-
 ## Roadmap
 
-Potential features:
-
-- Multirow insert
+- Batch insert
 - On conflict
 - Delete
