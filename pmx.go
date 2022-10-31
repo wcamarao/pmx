@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrInvalidRef = errors.New("invalid ref")

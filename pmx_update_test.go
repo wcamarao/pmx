@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/suite"
 	"github.com/wcamarao/pmx"
 	"github.com/wcamarao/pmx/fxt"
