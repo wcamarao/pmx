@@ -18,8 +18,8 @@ type Executor interface {
 }
 
 type UpdateOptions struct {
-	Allow []string
-	Match []string
+	Set []string
+	By  []string
 }
 
 func IsZero(entity interface{}) bool {
@@ -123,11 +123,11 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 	allowed := map[string]bool{}
 	denied := map[string]bool{}
 
-	for _, field := range options.Allow {
+	for _, field := range options.Set {
 		allowed[field] = true
 	}
 
-	for _, field := range options.Match {
+	for _, field := range options.By {
 		denied[field] = true
 	}
 
@@ -164,7 +164,7 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 	buf.WriteString(strings.Join(statements, ", "))
 
 	conditions := []string{}
-	for _, field := range options.Match {
+	for _, field := range options.By {
 		sf, ok := t.FieldByName(field)
 		column := sf.Tag.Get("db")
 

@@ -39,7 +39,7 @@ type Event struct {
 }
 ```
 
-- The *first* struct field must be annotated with `table`
+- The _first_ struct field must be annotated with `table`
 - Struct fields annotated with `db` must be exported
 - Transient fields can be optionally exported
 
@@ -114,9 +114,9 @@ func main() {
 
 ## Selecting into a Slice
 
-Always provide a *slice* pointer.
+Always provide a _slice_ pointer.
 
-The underlying slice type must be a *struct* pointer.
+The underlying slice type must be a _struct_ pointer.
 
 ```go
 type Event struct {
@@ -153,8 +153,8 @@ Always provide a struct pointer.
 
 The last argument (`UpdateOptions`) specifies:
 
-- `Allow`: which struct fields will be updated
-- `Match`: which struct fields will be matched in the `where` clause
+- `Set`: explicit struct fields to be updated
+- `By`: explicit struct fields to be matched by equality in the `where` clause
 
 ```go
 type Event struct {
@@ -178,8 +178,8 @@ func main() {
 
     // Generated query: update events set recorded_at = $1 where id = $2 returning *
     err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
-        Allow: []string{"RecordedAt"},
-        Match: []string{"ID"},
+        Set: []string{"RecordedAt"},
+        By:  []string{"ID"},
     })
     if err != nil {
         panic(err)
@@ -215,7 +215,7 @@ Auto generated values are populated back into the struct pointer after `insert` 
 
 ## ErrInvalidRef
 
-The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid pointer or value.
+The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid pointer reference.
 
 ## Roadmap
 
