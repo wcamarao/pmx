@@ -15,7 +15,7 @@ go get -u github.com/wcamarao/pmx
 - Select database records into an annotated struct or slice
 - Insert and update database records from an annotated struct
 - Compatible with pgx Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
-- Support transient fields, nil pointers and auto generated values
+- Support transient fields and auto generated values
 
 ## Data Mapping
 
@@ -43,7 +43,7 @@ type Event struct {
 - Struct fields annotated with `db` must be exported
 - Transient fields can be optionally exported
 
-## Inserting
+## Insert
 
 Always provide a struct pointer.
 
@@ -67,7 +67,7 @@ func main() {
         RecordedAt: time.Now(),
     }
 
-    // Generated query: insert into events (id, recorded_at) values ($1, $2) returning *
+    // Generated query: insert into events (id, recorded_at) values ($1, $2)
     err = pmx.Insert(ctx, conn, &event)
     if err != nil {
         panic(err)
@@ -77,7 +77,7 @@ func main() {
 }
 ```
 
-## Selecting into a Struct
+## Select into struct
 
 Always provide a struct pointer.
 
@@ -112,7 +112,7 @@ func main() {
 }
 ```
 
-## Selecting into a Slice
+## Select into slice
 
 Always provide a _slice_ pointer.
 
@@ -140,18 +140,18 @@ func main() {
     }
 
     if len(events) == 0 {
-        panic("No events found")
+        panic("no events found")
     }
 
     fmt.Printf("%+v\n", events)
 }
 ```
 
-## Updating
+## Update
 
 Always provide a struct pointer.
 
-The last argument (`UpdateOptions`) specifies:
+The last argument `UpdateOptions` specifies:
 
 - `Set`: explicit struct fields to be updated
 - `By`: explicit struct fields to be matched by equality in the `where` clause
@@ -176,7 +176,7 @@ func main() {
         RecordedAt: time.Now(),
     }
 
-    // Generated query: update events set recorded_at = $1 where id = $2 returning *
+    // Generated query: update events set recorded_at = $1 where id = $2
     err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
         Set: []string{"RecordedAt"},
         By:  []string{"ID"},
@@ -191,34 +191,28 @@ func main() {
 
 ## Auto Generated Values
 
-Given the following table with an auto generated id:
+Given the following table with an auto generated field:
 
 ```sql
 create table events (
-    id bigserial primary key,
+    id uuid primary key,
+    version bigserial,
     recorded_at timestamptz
 );
 ```
 
-Annotate the `ID` field with the `generated:"always"` struct tag:
+Annotate the `ID` field with a `generated:"always"` struct tag:
 
 ```go
 type Event struct {
-    ID         int64     `db:"id" generated:"always" table:"events"`
+    ID         string    `db:"id" table:"events"`
+    Version    int64     `db:"version" generated:"always"`
     RecordedAt time.Time `db:"recorded_at"`
 }
 ```
 
-The `ID` will be excluded from `insert` and `update` statements.
-
-Auto generated values are populated back into the struct pointer after `insert` and `update`.
+The `version` will be excluded from `insert` and `update` statements.
 
 ## ErrInvalidRef
 
 The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid pointer reference.
-
-## Roadmap
-
-- Batch insert
-- On conflict
-- Delete

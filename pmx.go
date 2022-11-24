@@ -9,11 +9,16 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var ErrInvalidRef = errors.New("invalid ref")
 
 type Executor interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
+}
+
+type Selector interface {
 	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
 }
 
@@ -80,19 +85,18 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 
 	buf.WriteString(
 		fmt.Sprintf(
-			"(%s) values (%s) returning *",
+			"(%s) values (%s)",
 			strings.Join(columns, ", "),
 			strings.Join(marks, ", "),
 		),
 	)
 
-	rows, err := e.Query(ctx, buf.String(), args...)
+	_, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	return scan(rows, entity)
+	return nil
 }
 
 func Update(ctx context.Context, e Executor, entity interface{}, options *UpdateOptions) error {
@@ -184,22 +188,21 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 
 	buf.WriteString(
 		fmt.Sprintf(
-			" where %s returning *",
+			" where %s",
 			strings.Join(conditions, " and "),
 		),
 	)
 
-	rows, err := e.Query(ctx, buf.String(), args...)
+	_, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	return scan(rows, entity)
+	return nil
 }
 
-func Select(ctx context.Context, e Executor, dest interface{}, sql string, args ...interface{}) error {
-	rows, err := e.Query(ctx, sql, args...)
+func Select(ctx context.Context, s Selector, dest interface{}, sql string, args ...interface{}) error {
+	rows, err := s.Query(ctx, sql, args...)
 	if err != nil {
 		return err
 	}
