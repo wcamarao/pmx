@@ -66,7 +66,7 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 
 	for i := 0; i < t.NumField(); i++ {
 		column := t.Field(i).Tag.Get("db")
-		if t.Field(i).Tag.Get("generated") == "always" {
+		if t.Field(i).Tag.Get("generated") == "auto" {
 			continue
 		}
 		if !v.Field(i).CanInterface() {
@@ -137,7 +137,7 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 
 	for i := 0; i < t.NumField(); i++ {
 		column := t.Field(i).Tag.Get("db")
-		if t.Field(i).Tag.Get("generated") == "always" {
+		if t.Field(i).Tag.Get("generated") == "auto" {
 			continue
 		}
 		if !v.Field(i).CanInterface() {
@@ -179,7 +179,7 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 			return fmt.Errorf("struct field must be annotated: %s", field)
 		}
 		if !v.FieldByName(field).CanInterface() {
-			return fmt.Errorf("sturct field must be exported: %s", field)
+			return fmt.Errorf("struct field must be exported: %s", field)
 		}
 
 		args = append(args, v.FieldByName(field).Interface())

@@ -7,7 +7,7 @@ import (
 var sample = Sample{private: "used"}
 
 type Event struct {
-	Position   int64     `db:"position" generated:"always" table:"events"`
+	Position   int64     `db:"position" generated:"auto" table:"events"`
 	RecordedAt time.Time `db:"recorded_at"`
 }
 

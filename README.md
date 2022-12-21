@@ -191,7 +191,7 @@ func main() {
 
 ## Auto Generated Values
 
-Given the following table with an auto generated field:
+Given the following table with an auto generated value, e.g. serial/sequence:
 
 ```sql
 create table events (
@@ -200,16 +200,16 @@ create table events (
 );
 ```
 
-Annotate the `ID` field with a `generated:"always"` struct tag:
+Annotate the `ID` struct field with a `generated:"auto"` struct tag:
 
 ```go
 type Event struct {
-    ID         string    `db:"id" generated:"always" table:"events"`
+    ID         string    `db:"id" generated:"auto" table:"events"`
     RecordedAt time.Time `db:"recorded_at"`
 }
 ```
 
-The `id` will be excluded from `insert values` and `update set` statements.
+The `id` column will be excluded from `insert values` and `update set` statements.
 
 ## ErrInvalidRef
 
