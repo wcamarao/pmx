@@ -14,7 +14,7 @@ go get -u github.com/wcamarao/pmx
 - Explicit by design, no magic or conventions
 - Select database records into an annotated struct or slice
 - Insert and update database records from an annotated struct
-- Compatible with pgx Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
+- Compatible with pgx Exec/Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
 - Support transient fields and auto generated values
 
 ## Data Mapping
@@ -195,8 +195,7 @@ Given the following table with an auto generated field:
 
 ```sql
 create table events (
-    id uuid primary key,
-    version bigserial,
+    id bigserial primary key,
     recorded_at timestamptz
 );
 ```
@@ -205,13 +204,12 @@ Annotate the `ID` field with a `generated:"always"` struct tag:
 
 ```go
 type Event struct {
-    ID         string    `db:"id" table:"events"`
-    Version    int64     `db:"version" generated:"always"`
+    ID         string    `db:"id" generated:"always" table:"events"`
     RecordedAt time.Time `db:"recorded_at"`
 }
 ```
 
-The `version` will be excluded from `insert` and `update` statements.
+The `id` will be excluded from `insert values` and `update set` statements.
 
 ## ErrInvalidRef
 
