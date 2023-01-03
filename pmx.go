@@ -27,17 +27,6 @@ type UpdateOptions struct {
 	By  []string
 }
 
-func IsZero(entity interface{}) bool {
-	if entity == nil {
-		return true
-	}
-	v := reflect.ValueOf(entity)
-	if reflect.TypeOf(entity).Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	return v.IsZero()
-}
-
 func Insert(ctx context.Context, e Executor, entity interface{}) error {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
@@ -201,20 +190,20 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 	return nil
 }
 
-func Select(ctx context.Context, s Selector, dest interface{}, sql string, args ...interface{}) error {
+func Select(ctx context.Context, s Selector, dest interface{}, sql string, args ...interface{}) (bool, error) {
 	rows, err := s.Query(ctx, sql, args...)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer rows.Close()
 
 	return scan(rows, dest)
 }
 
-func scan(rows pgx.Rows, dest interface{}) error {
+func scan(rows pgx.Rows, dest interface{}) (bool, error) {
 	t := reflect.TypeOf(dest)
 	if t.Kind() != reflect.Ptr {
-		return ErrInvalidRef
+		return false, ErrInvalidRef
 	}
 
 	t = t.Elem()
@@ -226,45 +215,48 @@ func scan(rows pgx.Rows, dest interface{}) error {
 	case reflect.Struct:
 		return scanStruct(rows, t, v)
 	default:
-		return ErrInvalidRef
+		return false, ErrInvalidRef
 	}
 }
 
-func scanSlice(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
+func scanSlice(rows pgx.Rows, t reflect.Type, v reflect.Value) (bool, error) {
 	t = t.Elem()
 	if t.Kind() != reflect.Ptr {
-		return ErrInvalidRef
+		return false, ErrInvalidRef
 	}
 
 	t = t.Elem()
 	if t.Kind() != reflect.Struct {
-		return ErrInvalidRef
+		return false, ErrInvalidRef
 	}
+
+	ok := false
 
 	for rows.Next() {
 		ptr, err := scanFields(rows, t)
 		if err != nil {
-			return err
+			return false, err
 		}
 		sv := v.Elem()
 		sv.Set(reflect.Append(sv, ptr))
+		ok = true
 	}
 
-	return nil
+	return ok, nil
 }
 
-func scanStruct(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
+func scanStruct(rows pgx.Rows, t reflect.Type, v reflect.Value) (bool, error) {
 	if !rows.Next() {
-		return nil
+		return false, nil
 	}
 
 	ptr, err := scanFields(rows, t)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	v.Elem().Set(ptr.Elem())
-	return nil
+	return true, nil
 }
 
 func scanFields(rows pgx.Rows, t reflect.Type) (reflect.Value, error) {

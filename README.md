@@ -39,7 +39,7 @@ type Event struct {
 }
 ```
 
-- The _first_ struct field must be annotated with `table`
+- The _first_ struct field must be annotated with `table` for insert and update operations
 - Struct fields annotated with `db` must be exported
 - Transient fields can be optionally exported
 
@@ -81,8 +81,6 @@ func main() {
 
 Always provide a struct pointer.
 
-You can handle "not found" with `pmx.IsZero()`.
-
 ```go
 type Event struct {
     ID         string    `db:"id" table:"events"`
@@ -99,13 +97,13 @@ func main() {
     defer conn.Close(ctx)
 
     var event Event
-    err = pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
+    ok, err := pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
     if err != nil {
         panic(err)
     }
 
-    if pmx.IsZero(event) {
-        panic("not found")
+    if !ok {
+        panic("event not found")
     }
 
     fmt.Printf("%+v\n", event)
@@ -134,12 +132,12 @@ func main() {
     defer conn.Close(ctx)
 
     var events []*Event
-    err = pmx.Select(ctx, conn, &events, "select * from events limit 3")
+    ok, err := pmx.Select(ctx, conn, &events, "select * from events limit 3")
     if err != nil {
         panic(err)
     }
 
-    if len(events) == 0 {
+    if !ok {
         panic("no events found")
     }
 

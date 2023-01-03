@@ -29,46 +29,53 @@ func TestSelectStruct(t *testing.T) {
 
 func (s *SelectStructSuite) TestPointer() {
 	var sample fxt.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, $2 as label", "a", "b")
+	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, $2 as label", "a", "b")
 	s.Equal(fxt.Sample{ID: "a", Label: "b"}, sample)
 	s.Nil(err)
+	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestSkipNull() {
 	var sample fxt.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, null as label", "a")
+	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, null as label", "a")
 	s.Equal(fxt.Sample{ID: "a"}, sample)
 	s.Nil(err)
+	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestSkipTransient() {
 	var sample fxt.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 'a' as id, 'b' as transient")
+	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select 'a' as id, 'b' as transient")
 	s.Equal(fxt.Sample{ID: "a"}, sample)
 	s.Nil(err)
+	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestNoRows() {
 	var sample fxt.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 1 limit 0")
+	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select 1 limit 0")
 	s.Empty(sample)
 	s.Nil(err)
+	s.False(ok)
 }
 
 func (s *SelectStructSuite) TestValue() {
 	var sample fxt.Sample
-	err := pmx.Select(context.Background(), s.conn, sample, "select 1")
+	ok, err := pmx.Select(context.Background(), s.conn, sample, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
+	s.False(ok)
 }
 
 func (s *SelectStructSuite) TestMapPointer() {
 	sample := map[string]string{}
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 1")
+	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
+	s.False(ok)
 }
 
 func (s *SelectStructSuite) TestMapValue() {
 	sample := map[string]string{}
-	err := pmx.Select(context.Background(), s.conn, sample, "select 1")
+	ok, err := pmx.Select(context.Background(), s.conn, sample, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
+	s.False(ok)
 }
