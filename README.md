@@ -68,7 +68,7 @@ func main() {
     }
 
     // Generated query: insert into events (id, recorded_at) values ($1, $2)
-    err = pmx.Insert(ctx, conn, &event)
+    _, err = pmx.Insert(ctx, conn, &event)
     if err != nil {
         panic(err)
     }
@@ -175,7 +175,7 @@ func main() {
     }
 
     // Generated query: update events set recorded_at = $1 where id = $2
-    err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
+    _, err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
         Set: []string{"RecordedAt"},
         By:  []string{"ID"},
     })

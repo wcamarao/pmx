@@ -1,4 +1,4 @@
-package fxt
+package test
 
 import (
 	"time"

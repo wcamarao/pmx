@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/suite"
 	"github.com/wcamarao/pmx"
-	"github.com/wcamarao/pmx/fxt"
+	"github.com/wcamarao/pmx/test"
 )
 
 type SelectStructSuite struct {
@@ -16,11 +16,7 @@ type SelectStructSuite struct {
 }
 
 func (s *SelectStructSuite) SetupTest() {
-	conn, err := pgx.Connect(context.Background(), "postgresql://postgres:postgres@localhost/pmx")
-	if err != nil {
-		panic(err)
-	}
-	s.conn = conn
+	s.conn = test.Connect()
 }
 
 func TestSelectStruct(t *testing.T) {
@@ -28,31 +24,31 @@ func TestSelectStruct(t *testing.T) {
 }
 
 func (s *SelectStructSuite) TestPointer() {
-	var sample fxt.Sample
+	var sample test.Sample
 	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, $2 as label", "a", "b")
-	s.Equal(fxt.Sample{ID: "a", Label: "b"}, sample)
+	s.Equal(test.Sample{ID: "a", Label: "b"}, sample)
 	s.Nil(err)
 	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestSkipNull() {
-	var sample fxt.Sample
+	var sample test.Sample
 	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, null as label", "a")
-	s.Equal(fxt.Sample{ID: "a"}, sample)
+	s.Equal(test.Sample{ID: "a"}, sample)
 	s.Nil(err)
 	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestSkipTransient() {
-	var sample fxt.Sample
+	var sample test.Sample
 	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select 'a' as id, 'b' as transient")
-	s.Equal(fxt.Sample{ID: "a"}, sample)
+	s.Equal(test.Sample{ID: "a"}, sample)
 	s.Nil(err)
 	s.True(ok)
 }
 
 func (s *SelectStructSuite) TestNoRows() {
-	var sample fxt.Sample
+	var sample test.Sample
 	ok, err := pmx.Select(context.Background(), s.conn, &sample, "select 1 limit 0")
 	s.Empty(sample)
 	s.Nil(err)
@@ -60,7 +56,7 @@ func (s *SelectStructSuite) TestNoRows() {
 }
 
 func (s *SelectStructSuite) TestValue() {
-	var sample fxt.Sample
+	var sample test.Sample
 	ok, err := pmx.Select(context.Background(), s.conn, sample, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
 	s.False(ok)

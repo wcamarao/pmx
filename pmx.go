@@ -15,7 +15,7 @@ import (
 var ErrInvalidRef = errors.New("invalid ref")
 
 type Executor interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 }
 
 type Selector interface {
@@ -27,19 +27,19 @@ type UpdateOptions struct {
 	By  []string
 }
 
-func Insert(ctx context.Context, e Executor, entity interface{}) error {
+func Insert(ctx context.Context, e Executor, entity interface{}) (pgconn.CommandTag, error) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
 	if t.Kind() != reflect.Ptr {
-		return ErrInvalidRef
+		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
 	t = t.Elem()
 	v = v.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return ErrInvalidRef
+		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
 	buf := bytes.NewBufferString(
@@ -80,27 +80,27 @@ func Insert(ctx context.Context, e Executor, entity interface{}) error {
 		),
 	)
 
-	_, err := e.Exec(ctx, buf.String(), args...)
+	tag, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
-		return err
+		return pgconn.CommandTag{}, err
 	}
 
-	return nil
+	return tag, nil
 }
 
-func Update(ctx context.Context, e Executor, entity interface{}, options *UpdateOptions) error {
+func Update(ctx context.Context, e Executor, entity interface{}, options *UpdateOptions) (pgconn.CommandTag, error) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
 	if t.Kind() != reflect.Ptr {
-		return ErrInvalidRef
+		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
 	t = t.Elem()
 	v = v.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return ErrInvalidRef
+		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
 	buf := bytes.NewBufferString(
@@ -162,13 +162,13 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 		column := sf.Tag.Get("db")
 
 		if !ok {
-			return fmt.Errorf("struct field not found: %s", field)
+			return pgconn.CommandTag{}, fmt.Errorf("struct field not found: %s", field)
 		}
 		if len(column) == 0 {
-			return fmt.Errorf("struct field must be annotated: %s", field)
+			return pgconn.CommandTag{}, fmt.Errorf("struct field must be annotated: %s", field)
 		}
 		if !v.FieldByName(field).CanInterface() {
-			return fmt.Errorf("struct field must be exported: %s", field)
+			return pgconn.CommandTag{}, fmt.Errorf("struct field must be exported: %s", field)
 		}
 
 		args = append(args, v.FieldByName(field).Interface())
@@ -182,12 +182,12 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 		),
 	)
 
-	_, err := e.Exec(ctx, buf.String(), args...)
+	tag, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
-		return err
+		return pgconn.CommandTag{}, err
 	}
 
-	return nil
+	return tag, nil
 }
 
 func Select(ctx context.Context, s Selector, dest interface{}, sql string, args ...interface{}) (bool, error) {
@@ -267,7 +267,7 @@ func scanFields(rows pgx.Rows, t reflect.Type) (reflect.Value, error) {
 	for _, fd := range rows.FieldDescriptions() {
 		var field interface{}
 		for i := 0; i < t.NumField(); i++ {
-			if t.Field(i).Tag.Get("db") != string(fd.Name) {
+			if t.Field(i).Tag.Get("db") != fd.Name {
 				continue
 			}
 			field = v.Field(i).Addr().Interface()
