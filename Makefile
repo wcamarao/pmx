@@ -6,6 +6,10 @@ coverage:
 	@go tool cover -html=.coverage/report.out -o=.coverage/report.html
 	@cat .coverage/report.text
 
+.PHONY: compose
+compose:
+	@docker-compose up --detach
+
 .PHONY: lint
 lint:
 	@go mod verify
