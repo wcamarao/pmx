@@ -1,0 +1,42 @@
+run:
+  allow-parallel-runners: true
+  build-tags:
+    - integration
+
+output:
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - dogsled
+    - errcheck
+    - forbidigo
+    - gci
+    - goconst
+    - gocritic
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - makezero
+    - nonamedreturns
+    - prealloc
+    - predeclared
+    - reassign
+    - staticcheck
+    - testpackage
+    - tparallel
+    - typecheck
+    - unconvert
+    - unused
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
