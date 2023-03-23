@@ -25,60 +25,52 @@ func TestSelectSlice(t *testing.T) {
 
 func (s *SelectSliceSuite) TestPointer() {
 	var samples []*test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select $1 as id, $2 as label", "a", "b")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select $1 as id, $2 as label", "a", "b")
 	s.Equal([]*test.Sample{{ID: "a", Label: "b"}}, samples)
 	s.Nil(err)
-	s.True(ok)
 }
 
 func (s *SelectSliceSuite) TestSkipNull() {
 	var samples []*test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select $1 as id, null as label", "a")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select $1 as id, null as label", "a")
 	s.Equal([]*test.Sample{{ID: "a"}}, samples)
 	s.Nil(err)
-	s.True(ok)
 }
 
 func (s *SelectSliceSuite) TestSkipTransient() {
 	var samples []*test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select 'a' as id, 'b' as transient")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select 'a' as id, 'b' as transient")
 	s.Equal([]*test.Sample{{ID: "a"}}, samples)
 	s.Nil(err)
-	s.True(ok)
 }
 
 func (s *SelectSliceSuite) TestNoRows() {
 	var samples []*test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select 1 limit 0")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select 1 limit 0")
 	s.Empty(samples)
 	s.Nil(err)
-	s.False(ok)
 }
 
 func (s *SelectSliceSuite) TestValue() {
 	var samples []*test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, samples, "select 1")
+	err := pmx.Select(context.Background(), s.conn, samples, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
-	s.False(ok)
 }
 
 func (s *SelectSliceSuite) TestPointerOfStructValue() {
 	var samples []test.Sample
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
-	s.False(ok)
 }
 
 func (s *SelectSliceSuite) TestPointerOfMapPointer() {
 	var samples []*map[string]string
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
-	s.False(ok)
 }
 
 func (s *SelectSliceSuite) TestPointerOfMapValue() {
 	var samples []map[string]string
-	ok, err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
+	err := pmx.Select(context.Background(), s.conn, &samples, "select 1")
 	s.Equal(pmx.ErrInvalidRef, err)
-	s.False(ok)
 }

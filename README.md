@@ -79,7 +79,9 @@ func main() {
 
 ## Select into struct
 
-Always provide a struct pointer.
+Always provide a _struct_ pointer.
+
+Selecting into a _struct_ will error with `pgx.ErrNoRows` if an empty dataset is returned from the query.
 
 ```go
 type Event struct {
@@ -97,13 +99,12 @@ func main() {
     defer conn.Close(ctx)
 
     var event Event
-    ok, err := pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
+    err = pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
+    if err == pgx.ErrNoRows {
+        panic("event not found")
+    }
     if err != nil {
         panic(err)
-    }
-
-    if !ok {
-        panic("event not found")
     }
 
     fmt.Printf("%+v\n", event)
@@ -112,9 +113,9 @@ func main() {
 
 ## Select into slice
 
-Always provide a _slice_ pointer.
+Always provide a _slice_ pointer. The underlying slice type must be a _struct_ pointer.
 
-The underlying slice type must be a _struct_ pointer.
+Selecting into a _slice_ won't error if an empty dataset is returned from the query.
 
 ```go
 type Event struct {
@@ -132,12 +133,11 @@ func main() {
     defer conn.Close(ctx)
 
     var events []*Event
-    ok, err := pmx.Select(ctx, conn, &events, "select * from events limit 3")
+    err = pmx.Select(ctx, conn, &events, "select * from events limit 3")
     if err != nil {
         panic(err)
     }
-
-    if !ok {
+    if len(events) == 0 {
         panic("no events found")
     }
 

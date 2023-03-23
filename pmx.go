@@ -19,7 +19,7 @@ type Executor interface {
 }
 
 type Selector interface {
-	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
 type UpdateOptions struct {
@@ -27,7 +27,7 @@ type UpdateOptions struct {
 	By  []string
 }
 
-func Insert(ctx context.Context, e Executor, entity interface{}) (pgconn.CommandTag, error) {
+func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
@@ -42,16 +42,14 @@ func Insert(ctx context.Context, e Executor, entity interface{}) (pgconn.Command
 		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
-	buf := bytes.NewBufferString(
-		fmt.Sprintf(
-			"insert into %s ",
-			t.Field(0).Tag.Get("table"),
-		),
-	)
+	buf := bytes.NewBufferString(fmt.Sprintf(
+		"insert into %s ",
+		t.Field(0).Tag.Get("table"),
+	))
 
 	columns := []string{}
 	marks := []string{}
-	args := []interface{}{}
+	args := []any{}
 
 	for i := 0; i < t.NumField(); i++ {
 		column := t.Field(i).Tag.Get("db")
@@ -72,13 +70,11 @@ func Insert(ctx context.Context, e Executor, entity interface{}) (pgconn.Command
 		marks = append(marks, fmt.Sprintf("$%d", i))
 	}
 
-	buf.WriteString(
-		fmt.Sprintf(
-			"(%s) values (%s)",
-			strings.Join(columns, ", "),
-			strings.Join(marks, ", "),
-		),
-	)
+	buf.WriteString(fmt.Sprintf(
+		"(%s) values (%s)",
+		strings.Join(columns, ", "),
+		strings.Join(marks, ", "),
+	))
 
 	tag, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
@@ -88,7 +84,7 @@ func Insert(ctx context.Context, e Executor, entity interface{}) (pgconn.Command
 	return tag, nil
 }
 
-func Update(ctx context.Context, e Executor, entity interface{}, options *UpdateOptions) (pgconn.CommandTag, error) {
+func Update(ctx context.Context, e Executor, entity any, options *UpdateOptions) (pgconn.CommandTag, error) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
@@ -103,16 +99,14 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
-	buf := bytes.NewBufferString(
-		fmt.Sprintf(
-			"update %s set ",
-			t.Field(0).Tag.Get("table"),
-		),
-	)
+	buf := bytes.NewBufferString(fmt.Sprintf(
+		"update %s set ",
+		t.Field(0).Tag.Get("table"),
+	))
 
 	columns := []string{}
 	statements := []string{}
-	args := []interface{}{}
+	args := []any{}
 	allowed := map[string]bool{}
 	denied := map[string]bool{}
 
@@ -146,12 +140,11 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 	}
 
 	for i, column := range columns {
-		statements = append(statements,
-			fmt.Sprintf(
-				"%s = $%d",
-				column, i+1,
-			),
-		)
+		statements = append(statements, fmt.Sprintf(
+			"%s = $%d",
+			column,
+			i+1,
+		))
 	}
 
 	buf.WriteString(strings.Join(statements, ", "))
@@ -172,15 +165,17 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 		}
 
 		args = append(args, v.FieldByName(field).Interface())
-		conditions = append(conditions, fmt.Sprintf("%s = $%d", column, len(args)))
+		conditions = append(conditions, fmt.Sprintf(
+			"%s = $%d",
+			column,
+			len(args),
+		))
 	}
 
-	buf.WriteString(
-		fmt.Sprintf(
-			" where %s",
-			strings.Join(conditions, " and "),
-		),
-	)
+	buf.WriteString(fmt.Sprintf(
+		" where %s",
+		strings.Join(conditions, " and "),
+	))
 
 	tag, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
@@ -190,20 +185,20 @@ func Update(ctx context.Context, e Executor, entity interface{}, options *Update
 	return tag, nil
 }
 
-func Select(ctx context.Context, s Selector, dest interface{}, sql string, args ...interface{}) (bool, error) {
+func Select(ctx context.Context, s Selector, dest any, sql string, args ...any) error {
 	rows, err := s.Query(ctx, sql, args...)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer rows.Close()
 
 	return scan(rows, dest)
 }
 
-func scan(rows pgx.Rows, dest interface{}) (bool, error) {
+func scan(rows pgx.Rows, dest any) error {
 	t := reflect.TypeOf(dest)
 	if t.Kind() != reflect.Ptr {
-		return false, ErrInvalidRef
+		return ErrInvalidRef
 	}
 
 	t = t.Elem()
@@ -215,57 +210,54 @@ func scan(rows pgx.Rows, dest interface{}) (bool, error) {
 	case reflect.Struct:
 		return scanStruct(rows, t, v)
 	default:
-		return false, ErrInvalidRef
+		return ErrInvalidRef
 	}
 }
 
-func scanSlice(rows pgx.Rows, t reflect.Type, v reflect.Value) (bool, error) {
+func scanSlice(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
 	t = t.Elem()
 	if t.Kind() != reflect.Ptr {
-		return false, ErrInvalidRef
+		return ErrInvalidRef
 	}
 
 	t = t.Elem()
 	if t.Kind() != reflect.Struct {
-		return false, ErrInvalidRef
+		return ErrInvalidRef
 	}
-
-	ok := false
 
 	for rows.Next() {
 		ptr, err := scanFields(rows, t)
 		if err != nil {
-			return false, err
+			return err
 		}
 		sv := v.Elem()
 		sv.Set(reflect.Append(sv, ptr))
-		ok = true
 	}
 
-	return ok, nil
+	return nil
 }
 
-func scanStruct(rows pgx.Rows, t reflect.Type, v reflect.Value) (bool, error) {
+func scanStruct(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
 	if !rows.Next() {
-		return false, nil
+		return pgx.ErrNoRows
 	}
 
 	ptr, err := scanFields(rows, t)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	v.Elem().Set(ptr.Elem())
-	return true, nil
+	return nil
 }
 
 func scanFields(rows pgx.Rows, t reflect.Type) (reflect.Value, error) {
-	fields := []interface{}{}
+	fields := []any{}
 	ptr := reflect.New(t)
 	v := ptr.Elem()
 
 	for _, fd := range rows.FieldDescriptions() {
-		var field interface{}
+		var field any
 		for i := 0; i < t.NumField(); i++ {
 			if t.Field(i).Tag.Get("db") != fd.Name {
 				continue
@@ -277,7 +269,7 @@ func scanFields(rows pgx.Rows, t reflect.Type) (reflect.Value, error) {
 
 	for i := range fields {
 		if len(rows.RawValues()[i]) == 0 {
-			fields[i] = new(interface{})
+			fields[i] = new(any)
 		}
 	}
 
