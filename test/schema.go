@@ -13,7 +13,7 @@ var schema = []string{
 	)`,
 
 	`create table samples (
-		id text,
+		id text primary key,
 		label text
 	)`,
 

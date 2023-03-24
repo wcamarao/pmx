@@ -8,11 +8,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var ErrInvalidRef = errors.New("invalid ref")
+var ErrUniqueViolation = errors.New("unique violation")
 
 type Executor interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
@@ -76,9 +78,13 @@ func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, err
 		strings.Join(marks, ", "),
 	))
 
+	var pgErr *pgconn.PgError
 	tag, err := e.Exec(ctx, buf.String(), args...)
+	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		return tag, ErrUniqueViolation
+	}
 	if err != nil {
-		return pgconn.CommandTag{}, err
+		return tag, err
 	}
 
 	return tag, nil
