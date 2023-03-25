@@ -2,9 +2,11 @@ package pmx_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/suite"
@@ -93,7 +95,9 @@ func (s *InsertSuite) TestUniqueViolation() {
 	s.Equal(pgconn.NewCommandTag("INSERT 0 1"), tag)
 	s.NoError(err)
 
+	var pgErr *pgconn.PgError
 	tag, err = pmx.Insert(context.Background(), s.conn, &sample)
-	s.ErrorIs(err, pmx.ErrUniqueViolation)
+	s.True(errors.As(err, &pgErr))
+	s.Equal(pgerrcode.UniqueViolation, pgErr.Code)
 	s.Equal(pgconn.CommandTag{}, tag)
 }

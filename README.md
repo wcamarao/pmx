@@ -100,7 +100,7 @@ func main() {
 
     var event Event
     err = pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
-    if err == pgx.ErrNoRows {
+    if errors.Is(err, pgx.ErrNoRows) {
         panic("event not found")
     }
     if err != nil {
