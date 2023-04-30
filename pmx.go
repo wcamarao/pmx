@@ -27,19 +27,19 @@ type UpdateOptions struct {
 	By  []string
 }
 
-func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
+func prepareInsert(entity any) (*bytes.Buffer, []any) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
 	if t.Kind() != reflect.Ptr {
-		return pgconn.CommandTag{}, ErrInvalidRef
+		return nil, nil
 	}
 
 	t = t.Elem()
 	v = v.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return pgconn.CommandTag{}, ErrInvalidRef
+		return nil, nil
 	}
 
 	buf := bytes.NewBufferString(fmt.Sprintf(
@@ -75,6 +75,25 @@ func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, err
 		strings.Join(columns, ", "),
 		strings.Join(marks, ", "),
 	))
+	return buf, args
+}
+
+func InsertReturning(ctx context.Context, e Selector, entity any) error {
+	buf, args := prepareInsert(entity)
+	if buf == nil && args == nil {
+		return ErrInvalidRef
+	}
+
+	buf.WriteString(" RETURNING *")
+
+	return Select(ctx, e, entity, buf.String(), args...)
+}
+
+func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
+	buf, args := prepareInsert(entity)
+	if buf == nil && args == nil {
+		return pgconn.CommandTag{}, ErrInvalidRef
+	}
 
 	tag, err := e.Exec(ctx, buf.String(), args...)
 	if err != nil {
