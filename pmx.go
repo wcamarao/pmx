@@ -27,7 +27,7 @@ type UpdateOptions struct {
 	By  []string
 }
 
-func prepareInsert(entity any) (*bytes.Buffer, []any) {
+func PrepareInsert(entity any) (*bytes.Buffer, []any) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
@@ -79,7 +79,7 @@ func prepareInsert(entity any) (*bytes.Buffer, []any) {
 }
 
 func InsertReturning(ctx context.Context, e Selector, entity any) error {
-	buf, args := prepareInsert(entity)
+	buf, args := PrepareInsert(entity)
 	if buf == nil && args == nil {
 		return ErrInvalidRef
 	}
@@ -90,7 +90,7 @@ func InsertReturning(ctx context.Context, e Selector, entity any) error {
 }
 
 func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
-	buf, args := prepareInsert(entity)
+	buf, args := PrepareInsert(entity)
 	if buf == nil && args == nil {
 		return pgconn.CommandTag{}, ErrInvalidRef
 	}
@@ -299,3 +299,4 @@ func scanFields(rows pgx.Rows, t reflect.Type) (reflect.Value, error) {
 
 	return ptr, nil
 }
+
