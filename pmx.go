@@ -6,25 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var ErrInvalidRef = errors.New("invalid ref")
+var (
+	ErrInvalidRef = errors.New("invalid ref")
+	ErrNoRows     = pgx.ErrNoRows
+)
 
 type Executor interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-}
-
-type Selector interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
-}
-
-type UpdateOptions struct {
-	Set []string
-	By  []string
 }
 
 func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
@@ -48,151 +45,65 @@ func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, err
 	))
 
 	columns := []string{}
-	marks := []string{}
+	values := []string{}
 	args := []any{}
 
 	for i := 0; i < t.NumField(); i++ {
-		column := t.Field(i).Tag.Get("db")
-		if t.Field(i).Tag.Get("generated") == "auto" {
+		tag := t.Field(i).Tag
+		column := tag.Get("db")
+		if len(column) == 0 {
 			continue
 		}
 		if !v.Field(i).CanInterface() {
 			continue
 		}
-		if len(column) == 0 {
+		columns = append(columns, column)
+		if tag.Get("generated") == "auto" {
+			values = append(values, "default")
 			continue
 		}
-		columns = append(columns, column)
 		args = append(args, v.Field(i).Interface())
-	}
-
-	for i := 1; i <= len(columns); i++ {
-		marks = append(marks, fmt.Sprintf("$%d", i))
+		values = append(values, fmt.Sprintf("$%d", len(args)))
 	}
 
 	buf.WriteString(fmt.Sprintf(
 		"(%s) values (%s)",
 		strings.Join(columns, ", "),
-		strings.Join(marks, ", "),
+		strings.Join(values, ", "),
 	))
 
-	tag, err := e.Exec(ctx, buf.String(), args...)
-	if err != nil {
-		return tag, err
+	if slices.Contains(values, "default") {
+		buf.WriteString(" returning *")
+		rows, err := e.Query(ctx, buf.String(), args...)
+		if err != nil {
+			return pgconn.CommandTag{}, err
+		}
+		defer rows.Close()
+		err = scan(rows, entity)
+		if err != nil {
+			return pgconn.CommandTag{}, err
+		}
+		rows.Close()
+		return rows.CommandTag(), nil
 	}
 
-	return tag, nil
+	return e.Exec(ctx, buf.String(), args...)
 }
 
-func Update(ctx context.Context, e Executor, entity any, options *UpdateOptions) (pgconn.CommandTag, error) {
-	t := reflect.TypeOf(entity)
-	v := reflect.ValueOf(entity)
-
-	if t.Kind() != reflect.Ptr {
-		return pgconn.CommandTag{}, ErrInvalidRef
-	}
-
-	t = t.Elem()
-	v = v.Elem()
-
-	if t.Kind() != reflect.Struct {
-		return pgconn.CommandTag{}, ErrInvalidRef
-	}
-
-	buf := bytes.NewBufferString(fmt.Sprintf(
-		"update %s set ",
-		t.Field(0).Tag.Get("table"),
-	))
-
-	columns := []string{}
-	statements := []string{}
-	args := []any{}
-	allowed := map[string]bool{}
-	denied := map[string]bool{}
-
-	for _, field := range options.Set {
-		allowed[field] = true
-	}
-
-	for _, field := range options.By {
-		denied[field] = true
-	}
-
-	for i := 0; i < t.NumField(); i++ {
-		column := t.Field(i).Tag.Get("db")
-		if t.Field(i).Tag.Get("generated") == "auto" {
-			continue
-		}
-		if !v.Field(i).CanInterface() {
-			continue
-		}
-		if len(column) == 0 {
-			continue
-		}
-		if !allowed[t.Field(i).Name] {
-			continue
-		}
-		if denied[t.Field(i).Name] {
-			continue
-		}
-		columns = append(columns, column)
-		args = append(args, v.Field(i).Interface())
-	}
-
-	for i, column := range columns {
-		statements = append(statements, fmt.Sprintf(
-			"%s = $%d",
-			column,
-			i+1,
-		))
-	}
-
-	buf.WriteString(strings.Join(statements, ", "))
-
-	conditions := []string{}
-	for _, field := range options.By {
-		sf, ok := t.FieldByName(field)
-		column := sf.Tag.Get("db")
-
-		if !ok {
-			return pgconn.CommandTag{}, fmt.Errorf("struct field not found: %s", field)
-		}
-		if len(column) == 0 {
-			return pgconn.CommandTag{}, fmt.Errorf("struct field must be annotated: %s", field)
-		}
-		if !v.FieldByName(field).CanInterface() {
-			return pgconn.CommandTag{}, fmt.Errorf("struct field must be exported: %s", field)
-		}
-
-		args = append(args, v.FieldByName(field).Interface())
-		conditions = append(conditions, fmt.Sprintf(
-			"%s = $%d",
-			column,
-			len(args),
-		))
-	}
-
-	buf.WriteString(fmt.Sprintf(
-		" where %s",
-		strings.Join(conditions, " and "),
-	))
-
-	tag, err := e.Exec(ctx, buf.String(), args...)
-	if err != nil {
-		return pgconn.CommandTag{}, err
-	}
-
-	return tag, nil
-}
-
-func Select(ctx context.Context, s Selector, dest any, sql string, args ...any) error {
-	rows, err := s.Query(ctx, sql, args...)
+func Select(ctx context.Context, e Executor, dest any, sql string, args ...any) error {
+	rows, err := e.Query(ctx, sql, args...)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
 	return scan(rows, dest)
+}
+
+func UniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	ok := errors.As(err, &pgErr)
+	return ok && pgErr.Code == pgerrcode.UniqueViolation
 }
 
 func scan(rows pgx.Rows, dest any) error {
@@ -234,11 +145,21 @@ func scanSlice(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
 		sv.Set(reflect.Append(sv, ptr))
 	}
 
+	err := rows.Err()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func scanStruct(rows pgx.Rows, t reflect.Type, v reflect.Value) error {
 	if !rows.Next() {
+		err := rows.Err()
+		if err != nil {
+			return err
+		}
+
 		return pgx.ErrNoRows
 	}
 

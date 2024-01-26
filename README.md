@@ -12,18 +12,19 @@ go get -u github.com/wcamarao/pmx
 
 - Simple data mapping with struct tags
 - Explicit by design, no magic or conventions
+- Insert database records from an annotated struct
 - Select database records into an annotated struct or slice
-- Insert and update database records from an annotated struct
 - Compatible with pgx Exec/Query interface i.e. `pgxpool.Pool`, `pgx.Conn`, `pgx.Tx`
-- Support transient fields and auto generated values
+- Support auto generated values, transient fields and pgx supported types e.g. `jsonb` maps and slices
 
-## Data Mapping
+## Data mapping
 
 Given the following table:
 
 ```sql
 create table events (
     id uuid primary key,
+    payload jsonb,
     recorded_at timestamptz
 );
 ```
@@ -32,183 +33,142 @@ Annotate a data model with struct tags:
 
 ```go
 type Event struct {
-    ID         string    `db:"id" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
-    Transient  string    // ignored by pmx
-    transient  string    // ignored by pmx
+    ID                string         `db:"id" table:"events"`
+    Payload           map[string]any `db:"payload"`
+    RecordedAt        time.Time      `db:"recorded_at"`
+    ExportedTransient string         // ignored by pmx
+    privateTransient  string         // ignored by pmx
 }
 ```
 
-- The _first_ struct field must be annotated with `table` for insert and update operations
-- Struct fields annotated with `db` must be exported
-- Transient fields can be optionally exported
+- Annotate the first struct field with `table` (required for insert statements only)
+- Annotate exported struct fields with `db` (required for insert and select statements)
+- Exported fields without a `db` struct tag are transient and ignored by pmx
+- Private fields are always transient and ignored by pmx
 
 ## Insert
 
 Always provide a struct pointer.
 
-```go
-type Event struct {
-    ID         string    `db:"id" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
-}
+Use the function `pmx.UniqueViolation(err)` to determine whether an insert statement failed due to unique violation.
 
+```go
 func main() {
     ctx := context.Background()
 
     conn, err := pgx.Connect(ctx, "postgresql://...")
     if err != nil {
-        panic(err)
+        log.Panicf("connection error: %+v", err)
     }
     defer conn.Close(ctx)
 
     event := Event{
         ID:         "a1eff19b-4624-46c6-9e09-5910e7b2938d",
+        Payload:    map[string]any{"key", "value"},
         RecordedAt: time.Now(),
     }
 
-    // Generated query: insert into events (id, recorded_at) values ($1, $2)
-    _, err = pmx.Insert(ctx, conn, &event)
+    // Generated query: insert into events (id, payload, recorded_at) values ($1, $2, $3)
+    tag, err := pmx.Insert(ctx, conn, &event)
+    if pmx.UniqueViolation(err) {
+        log.Panicf("unique violation error: %+v", err)
+    }
     if err != nil {
-        panic(err)
+        log.Panicf("error: %+v", err)
     }
 
-    fmt.Printf("%+v\n", event)
+    log.Printf("tag: %+v", tag)
+    log.Printf("event: %+v", event)
 }
 ```
 
-## Select into struct
+## Select one record
 
-Always provide a _struct_ pointer.
+Always provide a struct pointer.
 
-Selecting into a _struct_ will error with `pgx.ErrNoRows` if an empty dataset is returned from the query.
+Selecting one record will error with `pmx.ErrNoRows` if an empty dataset is returned from the query.
 
 ```go
-type Event struct {
-    ID         string    `db:"id" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
-}
-
 func main() {
     ctx := context.Background()
 
     conn, err := pgx.Connect(ctx, "postgresql://...")
     if err != nil {
-        panic(err)
+        log.Panicf("connection error: %+v", err)
     }
     defer conn.Close(ctx)
 
     var event Event
     err = pmx.Select(ctx, conn, &event, "select * from events where id = $1", "a1eff19b-4624-46c6-9e09-5910e7b2938d")
-    if errors.Is(err, pgx.ErrNoRows) {
-        panic("event not found")
+    if errors.Is(err, pmx.ErrNoRows) {
+        log.Panicf("event not found error: %+v", err)
     }
     if err != nil {
-        panic(err)
+        log.Panicf("error: %+v", err)
     }
 
-    fmt.Printf("%+v\n", event)
+    log.Printf("event: %+v", event)
 }
 ```
 
-## Select into slice
+## Select multiple records
 
-Always provide a _slice_ pointer. The underlying slice type must be a _struct_ pointer.
+Always provide a slice pointer. The underlying slice type must be a struct pointer.
 
-Selecting into a _slice_ won't error if an empty dataset is returned from the query.
+Selecting multiple records won't error if an empty dataset is returned from the query.
 
 ```go
-type Event struct {
-    ID         string    `db:"id" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
-}
-
 func main() {
     ctx := context.Background()
 
     conn, err := pgx.Connect(ctx, "postgresql://...")
     if err != nil {
-        panic(err)
+        log.Panicf("connection error: %+v", err)
     }
     defer conn.Close(ctx)
 
     var events []*Event
-    err = pmx.Select(ctx, conn, &events, "select * from events limit 3")
+    err = pmx.Select(ctx, conn, &events, "select * from events limit 10")
     if err != nil {
-        panic(err)
+        log.Panicf("error: %+v", err)
     }
     if len(events) == 0 {
-        panic("no events found")
+      log.Panicf("no events found: %+v", events)
     }
 
-    fmt.Printf("%+v\n", events)
+    log.Printf("events: %+v", events)
 }
 ```
 
-## Update
+## Auto generated values
 
-Always provide a struct pointer.
-
-The last argument `UpdateOptions` specifies:
-
-- `Set`: explicit struct fields to be updated
-- `By`: explicit struct fields to be matched by equality in the `where` clause
-
-```go
-type Event struct {
-    ID         string    `db:"id" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
-}
-
-func main() {
-    ctx := context.Background()
-
-    conn, err := pgx.Connect(ctx, "postgresql://...")
-    if err != nil {
-        panic(err)
-    }
-    defer conn.Close(ctx)
-
-    event := Event{
-        ID:         "a1eff19b-4624-46c6-9e09-5910e7b2938d",
-        RecordedAt: time.Now(),
-    }
-
-    // Generated query: update events set recorded_at = $1 where id = $2
-    _, err = pmx.Update(ctx, conn, &event, &pmx.UpdateOptions{
-        Set: []string{"RecordedAt"},
-        By:  []string{"ID"},
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    fmt.Printf("%+v\n", event)
-}
-```
-
-## Auto Generated Values
-
-Given the following table with an auto generated value, e.g. serial/sequence:
+Given the following table with auto generated values:
 
 ```sql
 create table events (
-    id bigserial primary key,
-    recorded_at timestamptz
+		id bigserial primary key,
+		recorded_at timestamptz default now()
 );
 ```
 
-Annotate the `ID` struct field with a `generated:"auto"` struct tag:
+Annotate struct fields with the `generated:"auto"` struct tag:
 
 ```go
 type Event struct {
-    ID         string    `db:"id" generated:"auto" table:"events"`
-    RecordedAt time.Time `db:"recorded_at"`
+    ID         int64     `db:"id"          generated:"auto" table:"events"`
+    RecordedAt time.Time `db:"recorded_at" generated:"auto"`
 }
 ```
 
-The `id` column will be excluded from `insert values` and `update set` statements.
+- Both columns will use `default` (aka auto generated) values in `insert` statements.
+- Both struct fields will be populated with values from `insert returning` statements.
 
 ## ErrInvalidRef
 
 The error `pmx.ErrInvalidRef` ("invalid ref") means you provided an invalid pointer reference.
+
+## ErrNoRows
+
+The error `pmx.ErrNoRows` means an empty dataset was returned when trying to select one record.
+
+This error is a reference to the underlying `pgx.ErrNoRows` for convenience in data access layers.

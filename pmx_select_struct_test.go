@@ -15,55 +15,70 @@ type SelectStructSuite struct {
 	conn *pgx.Conn
 }
 
-func (s *SelectStructSuite) SetupTest() {
-	s.conn = test.Connect()
+func (s *SelectStructSuite) SetupSuite() {
+	s.conn = test.Connect(context.Background())
+}
+
+func (s *SelectStructSuite) TearDownSuite() {
+	s.NoError(s.conn.Close(context.Background()))
 }
 
 func TestSelectStruct(t *testing.T) {
 	suite.Run(t, new(SelectStructSuite))
 }
 
-func (s *SelectStructSuite) TestPointer() {
-	var sample test.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, $2 as label", "a", "b")
-	s.Equal(test.Sample{ID: "a", Label: "b"}, sample)
-	s.Nil(err)
+func (s *SelectStructSuite) TestStructPointer() {
+	var projection test.Projection
+	err := pmx.Select(context.Background(), s.conn, &projection,
+		"select $1 as id, $2 as name, $3::jsonb as metadata, $4::jsonb as slice",
+		"projection-id",
+		"projection-name",
+		map[string]int{"index": 1},
+		[]string{"value"},
+	)
+	s.Equal(test.Projection{
+		ID:       "projection-id",
+		Name:     "projection-name",
+		Metadata: map[string]int{"index": 1},
+		Slice:    []string{"value"},
+	}, projection)
+	s.NoError(err)
 }
 
-func (s *SelectStructSuite) TestSkipNull() {
-	var sample test.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select $1 as id, null as label", "a")
-	s.Equal(test.Sample{ID: "a"}, sample)
-	s.Nil(err)
+func (s *SelectStructSuite) TestNull() {
+	var projection test.Projection
+	err := pmx.Select(context.Background(), s.conn, &projection, "select $1 as id, $2 as name", "projection-id", nil)
+	s.Equal(test.Projection{ID: "projection-id"}, projection)
+	s.NoError(err)
 }
 
-func (s *SelectStructSuite) TestSkipTransient() {
-	var sample test.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 'a' as id, 'b' as transient")
-	s.Equal(test.Sample{ID: "a"}, sample)
-	s.Nil(err)
+func (s *SelectStructSuite) TestUnmapped() {
+	var projection test.Projection
+	err := pmx.Select(context.Background(), s.conn, &projection, "select $1 as id, $2 as unmapped", "projection-id", "x")
+	s.Equal(test.Projection{ID: "projection-id"}, projection)
+	s.NoError(err)
 }
 
 func (s *SelectStructSuite) TestNoRows() {
-	var sample test.Sample
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 1 limit 0")
-	s.ErrorIs(err, pgx.ErrNoRows)
+	var projection test.Projection
+	err := pmx.Select(context.Background(), s.conn, &projection, "select 1 limit 0")
+	s.ErrorIs(err, pmx.ErrNoRows)
 }
 
-func (s *SelectStructSuite) TestValue() {
-	var sample test.Sample
-	err := pmx.Select(context.Background(), s.conn, sample, "select 1")
-	s.Equal(pmx.ErrInvalidRef, err)
+func (s *SelectStructSuite) TestStructValue() {
+	var projection test.Projection
+	err := pmx.Select(context.Background(), s.conn, projection, "select 1")
+	s.ErrorIs(err, pmx.ErrInvalidRef)
 }
 
 func (s *SelectStructSuite) TestMapPointer() {
-	sample := map[string]string{}
-	err := pmx.Select(context.Background(), s.conn, &sample, "select 1")
-	s.Equal(pmx.ErrInvalidRef, err)
+	projection := map[string]string{}
+	err := pmx.Select(context.Background(), s.conn, &projection, "select 1")
+	s.ErrorIs(err, pmx.ErrInvalidRef)
 }
 
 func (s *SelectStructSuite) TestMapValue() {
-	sample := map[string]string{}
-	err := pmx.Select(context.Background(), s.conn, sample, "select 1")
-	s.Equal(pmx.ErrInvalidRef, err)
+	projection := map[string]string{}
+	err := pmx.Select(context.Background(), s.conn, projection, "select 1")
+	s.ErrorIs(err, pmx.ErrInvalidRef)
 }
