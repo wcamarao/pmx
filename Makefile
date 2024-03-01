@@ -12,6 +12,7 @@ compose:
 
 .PHONY: lint
 lint:
+	@go mod tidy
 	@go mod verify
 	@golangci-lint run
 
