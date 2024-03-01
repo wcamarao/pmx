@@ -23,8 +23,8 @@ var statements = []string{
 }
 
 type Event struct {
-	Position   int64     `db:"position"    generated:"auto" table:"events"`
-	RecordedAt time.Time `db:"recorded_at" generated:"auto"`
+	Position   int64     `db:"position"    default:"true" table:"events"`
+	RecordedAt time.Time `db:"recorded_at" default:"true"`
 	RecordedBy string    `db:"recorded_by"`
 }
 

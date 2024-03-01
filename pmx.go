@@ -58,7 +58,7 @@ func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, err
 			continue
 		}
 		columns = append(columns, column)
-		if tag.Get("generated") == "auto" {
+		if tag.Get("default") == "true" {
 			values = append(values, "default")
 			continue
 		}
