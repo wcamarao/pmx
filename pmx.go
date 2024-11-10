@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrInvalidRef = errors.New("invalid ref")
-	ErrNoRows     = pgx.ErrNoRows
+	ErrInvalidRef       = errors.New("invalid ref")
+	ErrInvalidTableName = errors.New("invalid table name")
+	ErrNoRows           = pgx.ErrNoRows
 )
 
 type Executor interface {
@@ -24,7 +25,19 @@ type Executor interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
-func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, error) {
+type option func(*config)
+
+type config struct {
+	tableName string
+}
+
+func TableName(o string) option {
+	return func(cfg *config) {
+		cfg.tableName = o
+	}
+}
+
+func Insert(ctx context.Context, e Executor, entity any, opts ...option) (pgconn.CommandTag, error) {
 	t := reflect.TypeOf(entity)
 	v := reflect.ValueOf(entity)
 
@@ -39,10 +52,15 @@ func Insert(ctx context.Context, e Executor, entity any) (pgconn.CommandTag, err
 		return pgconn.CommandTag{}, ErrInvalidRef
 	}
 
-	buf := bytes.NewBufferString(fmt.Sprintf(
-		"insert into %s ",
-		t.Field(0).Tag.Get("table"),
-	))
+	cfg := &config{tableName: t.Field(0).Tag.Get("table")}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.tableName == "" {
+		return pgconn.CommandTag{}, ErrInvalidTableName
+	}
+
+	buf := bytes.NewBufferString("insert into " + cfg.tableName)
 
 	columns := []string{}
 	values := []string{}

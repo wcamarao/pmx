@@ -83,6 +83,16 @@ func (s *InsertSuite) TestUniqueViolation() {
 	s.True(pmx.UniqueViolation(err))
 }
 
+func (s *InsertSuite) TestCustomTableName() {
+	user := test.User{
+		Name: "Elon",
+	}
+
+	tag, err := pmx.Insert(context.Background(), s.conn, &user, pmx.TableName("users"))
+	s.Equal(pgconn.NewCommandTag("INSERT 0 1"), tag)
+	s.NoError(err)
+}
+
 func (s *InsertSuite) TestStructValue() {
 	var projection test.Projection
 	tag, err := pmx.Insert(context.Background(), s.conn, projection)

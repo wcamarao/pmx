@@ -20,6 +20,10 @@ var statements = []string{
 		metadata jsonb,
 		slice jsonb
 	)`,
+
+	`create table users (
+		name varchar
+	)`,
 }
 
 type Event struct {
@@ -35,6 +39,10 @@ type Projection struct {
 	Slice             []string       `db:"slice"`
 	ExportedTransient string
 	privateTransient  string
+}
+
+type User struct {
+	Name string `db:"name"`
 }
 
 func init() {
